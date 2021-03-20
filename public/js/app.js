@@ -1886,23 +1886,42 @@ __webpack_require__.r(__webpack_exports__);
 //
 //
 //
+//
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
   props: ['user'],
   data: function data() {
     return {
       messages: [],
-      newMessage: ''
+      newMessage: '',
+      users: [],
+      activeUser: false,
+      typingTimer: false
     };
   },
   created: function created() {
     var _this = this;
 
-    console.log(Echo.join('chat').listen('MessageSent', function (event) {
-      _this.messages.push(event.message);
-    }));
     this.fetchMessages();
-    Echo.join('chat').listen('MessageSent', function (event) {
+    Echo.join('chat').here(function (user) {
+      _this.users = user;
+    }).joining(function (user) {
+      _this.users.push(user);
+    }).leaving(function (user) {
+      _this.users = _this.users.filter(function (u) {
+        return u.id != user.id;
+      });
+    }).listen('MessageSent', function (event) {
       _this.messages.push(event.message);
+    }).listenForWhisper('typing', function (user) {
+      _this.activeUser = user;
+
+      if (_this.typingTimer) {
+        clearTimeout(_this.typingTimer);
+      }
+
+      _this.typingTimer = setTimeout(function () {
+        _this.activeUser = false;
+      }, 3000);
     });
   },
   methods: {
@@ -1922,6 +1941,9 @@ __webpack_require__.r(__webpack_exports__);
         message: this.newMessage
       });
       this.newMessage = '';
+    },
+    sendTypingEvent: function sendTypingEvent() {
+      Echo.join('chat').whisper('typing', this.user);
     }
   }
 });
@@ -1932,8 +1954,12 @@ __webpack_require__.r(__webpack_exports__);
 /*!*****************************!*\
   !*** ./resources/js/app.js ***!
   \*****************************/
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony import */ var vue_chat_scroll__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! vue-chat-scroll */ "./node_modules/vue-chat-scroll/dist/index.js");
+/* harmony import */ var vue_chat_scroll__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(vue_chat_scroll__WEBPACK_IMPORTED_MODULE_0__);
 /**
  * First we will load all of this project's JavaScript dependencies which
  * includes Vue and other libraries. It is a great starting point when
@@ -1942,6 +1968,8 @@ __webpack_require__.r(__webpack_exports__);
 __webpack_require__(/*! ./bootstrap */ "./resources/js/bootstrap.js");
 
 window.Vue = __webpack_require__(/*! vue */ "./node_modules/vue/dist/vue.esm.js").default;
+
+Vue.use((vue_chat_scroll__WEBPACK_IMPORTED_MODULE_0___default()));
 /**
  * The following block of code may be used to automatically register your
  * Vue components. It will recursively scan this directory for the Vue
@@ -43523,6 +43551,17 @@ runtime.setup(pusher_Pusher);
 
 /***/ }),
 
+/***/ "./node_modules/vue-chat-scroll/dist/index.js":
+/*!****************************************************!*\
+  !*** ./node_modules/vue-chat-scroll/dist/index.js ***!
+  \****************************************************/
+/***/ (function(module) {
+
+!function(e,n){ true?module.exports=n():0}(this,function(){"use strict";function o(e,n){var t=n||e.scrollHeight-e.clientHeight;"function"==typeof e.scroll?e.scroll({top:t}):e.scrollTop=t}function i(e,n){if(!1!==n.enabled)if(!1!==n.handlePrepend){var t=0===e.scrollTop&&s.has(e)&&e.scrollHeight-s.get(e);o(e,t),s.set(e,e.scrollHeight)}else o(e)}var r=function(){return(r=Object.assign||function(e){for(var n,t=1,o=arguments.length;t<o;t++)for(var i in n=arguments[t])Object.prototype.hasOwnProperty.call(n,i)&&(e[i]=n[i]);return e}).apply(this,arguments)},l={enabled:!0,handlePrepend:!1},c=new WeakMap,s=new WeakMap,n={inserted:function(e,n){var t=r(r({},l),n.value);i(e,t)},update:function(e,n){c.has(e)&&c.get(e).disconnect();var t=r(r({},l),n.value),o=new MutationObserver(function(){i(e,t)});o.observe(e,{childList:!0,subtree:!0}),c.set(e,o)}},e={install:function(e){e.directive("chat-scroll",n)}};return"undefined"!=typeof window&&window.Vue&&window.Vue.use(e),e});
+
+
+/***/ }),
+
 /***/ "./resources/js/components/ChatsComponent.vue":
 /*!****************************************************!*\
   !*** ./resources/js/components/ChatsComponent.vue ***!
@@ -43620,6 +43659,7 @@ var render = function() {
           _c(
             "ul",
             {
+              directives: [{ name: "chat-scroll", rawName: "v-chat-scroll" }],
               staticClass: "list-unstyled",
               staticStyle: { height: "300px", "overflow-y": "scroll" }
             },
@@ -43663,6 +43703,7 @@ var render = function() {
               }
               return _vm.sendMessage($event)
             },
+            keydown: _vm.sendTypingEvent,
             input: function($event) {
               if ($event.target.composing) {
                 return
@@ -43673,34 +43714,37 @@ var render = function() {
         })
       ]),
       _vm._v(" "),
-      _c("span", { staticClass: "text-muted" }, [_vm._v("is typing...")])
+      _vm.activeUser
+        ? _c("span", { staticClass: "text-muted" }, [
+            _vm._v(" " + _vm._s(_vm.activeUser.name) + " is typing...")
+          ])
+        : _vm._e()
     ]),
     _vm._v(" "),
-    _vm._m(0)
-  ])
-}
-var staticRenderFns = [
-  function() {
-    var _vm = this
-    var _h = _vm.$createElement
-    var _c = _vm._self._c || _h
-    return _c("div", { staticClass: "col-4" }, [
+    _c("div", { staticClass: "col-4" }, [
       _c("div", { staticClass: "card card-default" }, [
         _c("div", { staticClass: "card-header" }, [_vm._v("Active Users")]),
         _vm._v(" "),
         _c("div", { staticClass: "card-body" }, [
-          _c("ul", [
-            _c("li", { staticClass: "py-2" }, [
-              _vm._v(
-                "\n                         Andrzej\n                     "
-              )
-            ])
-          ])
+          _c(
+            "ul",
+            _vm._l(_vm.users, function(user, index) {
+              return _c("li", { key: index, staticClass: "py-2" }, [
+                _vm._v(
+                  "\n                         " +
+                    _vm._s(user.name) +
+                    "\n                     "
+                )
+              ])
+            }),
+            0
+          )
         ])
       ])
     ])
-  }
-]
+  ])
+}
+var staticRenderFns = []
 render._withStripped = true
 
 
@@ -55876,6 +55920,18 @@ Vue.compile = compileToFunctions;
 /******/ 				}
 /******/ 			}
 /******/ 			return result;
+/******/ 		};
+/******/ 	})();
+/******/ 	
+/******/ 	/* webpack/runtime/compat get default export */
+/******/ 	(() => {
+/******/ 		// getDefaultExport function for compatibility with non-harmony modules
+/******/ 		__webpack_require__.n = (module) => {
+/******/ 			var getter = module && module.__esModule ?
+/******/ 				() => (module['default']) :
+/******/ 				() => (module);
+/******/ 			__webpack_require__.d(getter, { a: getter });
+/******/ 			return getter;
 /******/ 		};
 /******/ 	})();
 /******/ 	
